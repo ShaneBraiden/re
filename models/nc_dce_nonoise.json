@@ -1,0 +1,49 @@
+{
+  "name": "nc_dce_nonoise",
+  "sha256": null,
+  "diverged": {
+    "epoch": 3,
+    "step": 13,
+    "last_noise_metric": 54557.11722310384
+  },
+  "in_ch": 4,
+  "noise_loss": false,
+  "config": {
+    "name": "nc_dce_nonoise",
+    "out": "models/nc_dce_nonoise.pth",
+    "init": "models/zero_dce_epoch99.pth",
+    "in_ch": 4,
+    "noise_loss": false,
+    "samples": 512,
+    "size": 256,
+    "seed": 1000,
+    "epochs": 60,
+    "batch": 8,
+    "lr": 0.0001,
+    "weight_decay": 0.0001,
+    "grad_clip": 0.1,
+    "exposure_target": 0.6,
+    "exposure_patch": 16,
+    "exposure": "one_sided",
+    "tau": 0.00784,
+    "w_spa": 1.0,
+    "w_exp": 10.0,
+    "w_col": 5.0,
+    "w_tv": 200.0,
+    "w_noise": 1.0,
+    "device": "auto",
+    "log_dir": "experiments/enhance_study/training"
+  },
+  "final": {
+    "epoch": 3,
+    "spa": 0.0063163147230322165,
+    "exp": 0.0013820493210611555,
+    "col": 0.03808414202649146,
+    "tv": 0.0005264564994528579,
+    "noise_metric": 54557.11722310384,
+    "total": 0.046308963326737285
+  },
+  "seconds": 25.2,
+  "device": "cuda",
+  "torch": "2.14.1+cu126"
+}

@@ -1,0 +1,8 @@
+# The arms that run with the core install alone - no torch, no checkpoints.
+# This is what the test suite and the demo use.
+
+pipelines:
+  - {name: classical_isp, kind: classical_isp}
+  - {name: nlm_denoise,   kind: nlm_denoise}
+  - {name: curve_tone,    kind: curve_tone}
+  - {name: rl_deconv,     kind: rl_deconv}

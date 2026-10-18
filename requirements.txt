@@ -1,0 +1,20 @@
+# Core - everything Stages 1-4 and the dashboard need to run end to end.
+numpy>=1.24
+scipy>=1.10
+pandas>=2.0
+matplotlib>=3.7
+opencv-python>=4.8
+pillow>=9.5
+PyYAML>=6.0
+flask>=2.3
+
+# Optional - each unlocks a specific arm of the study. Absent means the
+# corresponding pipeline/metric reports itself unavailable; it never silently
+# falls back to a substitute, because a substituted number is a wrong number.
+# rawpy>=0.18          # real RAW decode (.dng/.arw/.cr2); synthetic corpus works without it
+# torch>=2.0           # learned pipeline bank (zero_dce, nafnet, restormer, real_esrgan, learned_isp)
+#                      # and NAG (nc_dce, g_esrgan, nag); GPU wheels: --index-url https://download.pytorch.org/whl/cu126
+# python-docx>=1.1     # filling the RPT report template (sensorsim enhance)
+# lpips>=0.1.4         # LPIPS perceptual metric
+# pytesseract>=0.3.10  # OCR character accuracy (also needs the tesseract binary)
+# ultralytics>=8.0     # detection mAP

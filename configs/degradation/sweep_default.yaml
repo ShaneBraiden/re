@@ -1,0 +1,33 @@
+# Compound severity sweep: every deficit worsens together along one axis.
+#
+# Severity 0 is the identity condition - a perfect sensor, no noise, no blur,
+# no binning, full bit depth. That point is not decoration: the recovery ratio
+# measures against it, so it has to be a real measurement rather than an
+# extrapolation, and the runner adds it back if a config leaves it out.
+#
+# Severity 1 is the worst hardware in the study. The endpoints follow the
+# parameter table in ARCHITECTURE.md section 3.
+
+mode: compound
+
+defaults:
+  psf_kind: gaussian
+  # Physical light path: blur (optics) -> bin (pixel) -> photons -> noise.
+  # Set to "listed" only to reproduce the ordering in the section 2 diagram;
+  # see sensorsim/degrader/model.py for why it inflates recovery ratios.
+  order: optical
+
+levels: [0.0, 0.15, 0.3, 0.45, 0.6, 0.8, 1.0]
+
+schedule:
+  # Photon scale: 1.0 down to 0.03. Log because the meaningful step on an
+  # exposure axis is the ratio, not the difference - each step is roughly a stop.
+  alpha:      {from: 1.0,  to: 0.03, scale: log}
+  # Read noise in DN, cheaper readout electronics.
+  sigma_r_dn: {from: 0.0,  to: 10.0, scale: linear}
+  # PSF radius in pixels: diffraction and inferior optics.
+  r_psf:      {from: 0.0,  to: 2.4,  scale: linear}
+  # Effective pixel pitch. Integer-valued, so it steps rather than ramps.
+  binning:    {from: 1,    to: 2,    scale: step}
+  # ADC depth, 14 down to 10 bits.
+  bit_depth:  {from: 14,   to: 10,   scale: step}

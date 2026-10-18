@@ -1,0 +1,56 @@
+# NC-DCE training: the proposed model and its two ablations.
+#
+#   sensorsim train nc-dce                      all three
+#   sensorsim train nc-dce --variant nc_dce     just the proposed model
+#
+# All variants start from the published Zero-DCE weights and share one
+# generated dataset (procedural scenes, seeds 1000+, never the test corpus).
+
+common:
+  init: models/zero_dce_epoch99.pth
+  samples: 512
+  size: 256
+  seed: 1000
+  epochs: 60
+  batch: 8
+  lr: 1.0e-4
+  exposure_target: 0.6
+  tau: 0.00784          # 2/255: noise a viewer will not notice on a flat field
+  w_spa: 1.0
+  w_exp: 10.0
+  w_col: 5.0
+  w_tv: 200.0
+  w_noise: 1.0
+  log_dir: experiments/enhance_study/training
+
+variants:
+  # The proposed model: noise map as input, noise-amplification loss on.
+  - name: nc_dce
+    out: models/nc_dce_v1.pth
+    in_ch: 4
+    noise_loss: true
+
+  # Ablation: same loss, but the network must infer noise from the image.
+  - name: nc_dce_nosigma
+    out: models/nc_dce_nosigma.pth
+    in_ch: 3
+    noise_loss: true
+
+  # Ablation: noise map as input, but nothing in the loss rewards using it.
+  # With the one-sided exposure term and no noise term, nothing limits how far
+  # the curves brighten. If training diverges, that is recorded in the sidecar
+  # and the arm is reported as a gap rather than as a model.
+  - name: nc_dce_nonoise
+    out: models/nc_dce_nonoise.pth
+    in_ch: 4
+    noise_loss: false
+
+  # Control: the published Zero-DCE recipe (RGB input, two-sided exposure, no
+  # noise term) fine-tuned on exactly the same data and schedule. NC-DCE has to
+  # beat this, not just the released checkpoint, for the gain to be the method's
+  # rather than the fine-tuning data's.
+  - name: zero_dce_ft
+    out: models/zero_dce_ft.pth
+    in_ch: 3
+    noise_loss: false
+    exposure: two_sided

@@ -346,6 +346,3 @@ Everything above runs on the core install. These unlock specific arms:
 | `pip install -e ".[detect]"` | detection mAP |
 
 `sensorsim pipelines` lists what can currently run and why the rest cannot.
-#   S e n s o r S i m  
- #   r e  
- 

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensorsim"
+version = "0.1.0"
+description = "Quantifying the sensor-algorithm substitution rate in computational photography"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "opencv-python>=4.8",
+    "pillow>=9.5",
+    "PyYAML>=6.0",
+    "flask>=2.3",
+]
+
+[project.optional-dependencies]
+raw = ["rawpy>=0.18"]
+learned = ["torch>=2.0", "torchvision>=0.15", "lpips>=0.1.4"]
+ocr = ["pytesseract>=0.3.10"]
+detect = ["ultralytics>=8.0"]
+report = ["python-docx>=1.1"]
+enhance = ["torch>=2.0", "python-docx>=1.1"]
+dev = ["pytest>=7.4", "pytest-cov>=4.1"]
+
+[project.scripts]
+sensorsim = "sensorsim.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sensorsim*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SensorSim</title>
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M9 22l5-7 4 5 3-4 3 6z' fill='%23fff'/%3E%3C/svg%3E">
+<script>
+  // Before first paint, so a stored theme never flashes the other one.
+  try {
+    const theme = localStorage.getItem("sensorsim-theme");
+    if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  } catch (_) { /* storage blocked: follow the OS */ }
+</script>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<a class="skip" href="#page">Skip to content</a>
+<div class="app">
+  <aside class="sidebar" aria-label="Navigation">
+    <a class="brand" href="#/">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="28" height="28"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M9 22l5-7 4 5 3-4 3 6z" fill="var(--surface-1)"/></svg>
+      </span>
+      <span class="brand-text">
+        <span class="brand-name">SensorSim</span>
+        <span class="brand-tag">sensor–algorithm testbench</span>
+      </span>
+    </a>
+
+    <nav class="nav" id="nav">
+      <a href="#/overview" data-page="overview"><span class="nav-icon" data-icon="overview"></span><span>Overview</span></a>
+      <a href="#/explore" data-page="explore"><span class="nav-icon" data-icon="explore"></span><span>Explorer</span></a>
+      <a href="#/analysis" data-page="analysis"><span class="nav-icon" data-icon="analysis"></span><span>Analysis</span></a>
+      <a href="#/enhance" data-page="enhance"><span class="nav-icon" data-icon="enhance"></span><span>Enhance</span><span class="nav-badge" id="upload-badge" hidden>upload on</span></a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <label class="field run-field">
+        <span class="field-label">Run</span>
+        <select id="run-select" aria-label="Experiment run"></select>
+      </label>
+      <div class="theme-row">
+        <span class="field-label">Theme</span>
+        <div id="theme-switch"></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="pagebar">
+      <div class="pagebar-text">
+        <h1 id="page-title">SensorSim</h1>
+        <p id="page-sub" class="page-sub"></p>
+      </div>
+      <div class="pagebar-tools" id="page-tools"></div>
+    </header>
+    <main id="page" tabindex="-1"></main>
+    <footer class="footer">
+      <span id="footer-provenance"></span>
+      <span>Read-only view over cached results — every number here was computed by an earlier run.</span>
+    </footer>
+  </div>
+</div>
+
+<noscript><p class="noscript">The SensorSim dashboard needs JavaScript.</p></noscript>
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+# The NAG study bank: the classical arms, the two published learned arms
+# NAG builds on, the three proposed arms, and five ablations.
+#
+#   sensorsim weights fetch          the published checkpoints
+#   sensorsim train nc-dce           the NC-DCE checkpoints
+#   sensorsim run configs/experiments/enhance_study.yaml
+#
+# Every learned arm reports itself unavailable (a gap row, not a substitute)
+# if its checkpoint is missing.
+
+pipelines:
+  # --- classical arms, identical to the pilot bank ------------------------
+  - name: classical_isp
+    kind: classical_isp
+    params: {denoise_strength: 0.35}
+  - name: nlm_denoise
+    kind: nlm_denoise
+    params: {h: 0}
+  - name: curve_tone
+    kind: curve_tone
+    params: {iterations: 6, strength: 0.5}
+  - name: rl_deconv
+    kind: rl_deconv
+    params: {iterations: 12}
+
+  # --- published learned arms (the base methods) --------------------------
+  - name: zero_dce
+    kind: zero_dce
+    params:
+      weights: models/zero_dce_epoch99.pth
+      arch: sensorsim.restore.learned.arch:build_dce
+      device: auto
+  - name: real_esrgan
+    kind: real_esrgan
+    params:
+      weights: models/RealESRGAN_x4plus.pth
+      arch: sensorsim.restore.learned.arch:build_rrdbnet
+      device: auto
+      tile: 256
+
+  # --- proposed (this work) ----------------------------------------------
+  - name: nc_dce
+    kind: nc_dce
+    params: {weights: models/nc_dce_v1.pth, device: auto}
+  - name: g_esrgan
+    kind: g_esrgan
+    params: {weights: models/RealESRGAN_x4plus.pth, sr_kind: x4plus, gate: true, bp_iterations: 3, device: auto}
+  - name: nag
+    kind: nag
+    params: {dce_weights: models/nc_dce_v1.pth, sr_weights: models/RealESRGAN_x4plus.pth, sr_kind: x4plus,
+             denoise: true, gate: true, bp_iterations: 3, device: auto}
+
+  # --- ablations ----------------------------------------------------------
+  - name: nc_dce_nosigma
+    kind: nc_dce
+    params: {weights: models/nc_dce_nosigma.pth, device: auto}
+  - name: nc_dce_nonoise
+    kind: nc_dce
+    params: {weights: models/nc_dce_nonoise.pth, device: auto}
+  # Control: published Zero-DCE recipe fine-tuned on the same data as NC-DCE.
+  - name: zero_dce_ft
+    kind: nc_dce
+    params: {weights: models/zero_dce_ft.pth, device: auto}
+  - name: nag_nodenoise
+    kind: nag
+    params: {dce_weights: models/nc_dce_v1.pth, sr_weights: models/RealESRGAN_x4plus.pth, sr_kind: x4plus,
+             denoise: false, gate: true, bp_iterations: 3, device: auto}
+  - name: nag_nogate
+    kind: nag
+    params: {dce_weights: models/nc_dce_v1.pth, sr_weights: models/RealESRGAN_x4plus.pth, sr_kind: x4plus,
+             denoise: true, gate: false, bp_iterations: 3, device: auto}
+  - name: nag_nobp
+    kind: nag
+    params: {dce_weights: models/nc_dce_v1.pth, sr_weights: models/RealESRGAN_x4plus.pth, sr_kind: x4plus,
+             denoise: true, gate: true, bp_iterations: 0, device: auto}

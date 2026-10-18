@@ -1,0 +1,17 @@
+# Single-axis ablation: which deficit is actually doing the damage.
+# Everything but photon scale is held at its clean value, so any recovery
+# measured here is recovery of the exposure deficit alone.
+
+mode: axis
+axis: alpha
+values: [1.0, 0.5, 0.25, 0.12, 0.06, 0.03]
+
+defaults:
+  psf_kind: gaussian
+  order: optical
+
+fixed:
+  sigma_r_dn: 4.0
+  r_psf: 0.0
+  binning: 1
+  bit_depth: 14

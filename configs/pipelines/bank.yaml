@@ -1,0 +1,53 @@
+# The pipeline bank. Arms are added here, not in code - every entry names a
+# registered kind (see `sensorsim pipelines`) plus the parameters to build it.
+#
+# The learned arms are listed deliberately even though they cannot run without
+# torch and a pinned checkpoint. They report themselves unavailable and the
+# runner writes an explicit gap row into the metrics table, so the hole in the
+# bank is visible in the results rather than inferred from their absence.
+
+pipelines:
+  - name: classical_isp
+    kind: classical_isp
+    params:
+      denoise_strength: 0.35   # deliberately weak: the control is a fair floor
+
+  - name: nlm_denoise
+    kind: nlm_denoise
+    params:
+      h: 0                     # 0 = scale the filter with the condition's noise
+
+  - name: curve_tone
+    kind: curve_tone
+    params:
+      iterations: 6
+      strength: 0.5
+
+  - name: rl_deconv
+    kind: rl_deconv
+    params:
+      iterations: 12
+
+  # --- checkpoint-backed arms -------------------------------------------
+  # Activate by setting `weights` to a pinned checkpoint and `arch` to the
+  # module:factory that builds the matching nn.Module.
+
+  - name: zero_dce
+    kind: zero_dce
+    params: {weights: null, arch: null, device: auto}
+
+  - name: nafnet
+    kind: nafnet
+    params: {weights: null, arch: null, device: auto, tile: 512}
+
+  - name: restormer
+    kind: restormer
+    params: {weights: null, arch: null, device: auto, tile: 384}
+
+  - name: real_esrgan
+    kind: real_esrgan
+    params: {weights: null, arch: null, device: auto, tile: 512}
+
+  - name: learned_isp
+    kind: learned_isp
+    params: {weights: null, arch: null, device: auto}
