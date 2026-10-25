@@ -11,7 +11,9 @@ A classical baseline runs alongside for comparison: bicubic upscale, non-local
 means at the estimated noise level, unsharp mask. Plain bicubic is the
 reference "input" panel.
 
-Everything lands in ``experiments/enhance/<stem>-<hash>/``. The run is
+Everything lands in ``experiments/enhance/<stem>-<hash>/``: the original, the
+enhanced image, the two baselines it is compared with, the Wiener gate map and
+the record. Nothing else is written - no paper, no reports. The run is
 content-addressed: the same file always lands in the same folder.
 """
 
@@ -122,52 +124,6 @@ def _metrics(image_u8: np.ndarray, original: np.ndarray) -> dict[str, float]:
     return out
 
 
-def _detail_crop(image: np.ndarray, size: int) -> tuple[int, int, int, int]:
-    """The crop with the most edge energy - where enhancement differences show."""
-    g = cv2.Laplacian(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY).astype(np.float32), cv2.CV_32F) ** 2
-    k = max(8, size)
-    energy = cv2.blur(g, (k, k))
-    h, w = energy.shape
-    half = k // 2
-    inner = energy[half:max(half + 1, h - half), half:max(half + 1, w - half)]
-    y, x = np.unravel_index(int(np.argmax(inner)), inner.shape)
-    return int(x), int(y), min(k, w), min(k, h)
-
-
-def comparison_figure(panels: list[tuple[str, np.ndarray]], path: Path, crop_frac: float = 0.3) -> Path:
-    """Full frame of the result plus matched zoomed crops of every panel."""
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    from sensorsim.analyze.figures import THEME, apply_style
-
-    apply_style()
-    ref = panels[-1][1]
-    h, w = ref.shape[:2]
-    size = int(min(h, w) * crop_frac)
-    x, y, cw, ch = _detail_crop(panels[0][1], size)
-
-    fig = plt.figure(figsize=(7.16, 4.2), dpi=200)
-    grid = fig.add_gridspec(2, len(panels), height_ratios=[1.25, 1.0])
-    top = fig.add_subplot(grid[0, :])
-    top.imshow(ref)
-    top.add_patch(plt.Rectangle((x, y), cw, ch, fill=False, ec=THEME.ink, lw=1.2))
-    top.set_title(f"{panels[-1][0]}: full frame, box marks the zoomed region", fontsize=8)
-    top.axis("off")
-    for i, (name, img) in enumerate(panels):
-        ax = fig.add_subplot(grid[1, i])
-        ax.imshow(img[y:y + ch, x:x + cw], interpolation="nearest")
-        ax.set_title(name, fontsize=8)
-        ax.axis("off")
-    fig.tight_layout()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, facecolor=THEME.surface)
-    plt.close(fig)
-    return path
-
-
 def enhance_image(
     source: str | Path,
     kind: str = "auto",
@@ -254,10 +210,6 @@ def enhance_image(
         cv2.imwrite(str(out_dir / f"{key}.png"), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
     cv2.imwrite(str(out_dir / "original.png"), cv2.cvtColor(original, cv2.COLOR_RGB2BGR))
     cv2.imwrite(str(out_dir / "gate.png"), _u8(gate_map))
-    comparison_figure(
-        [("Bicubic", panels["input_bicubic"]), ("Classical", panels["classical"]), ("NAG (ours)", panels["nag"])],
-        out_dir / "comparison.png",
-    )
 
     metrics = {key: _metrics(img, original) for key, img in panels.items()}
     record = {
@@ -275,7 +227,7 @@ def enhance_image(
         "metrics": metrics,
         "seconds": round(time.perf_counter() - started, 2),
         "out_dir": out_dir.as_posix(),
-        "files": {k: (out_dir / f"{k}.png").as_posix() for k in ("original", "input_bicubic", "classical", "nag", "gate", "comparison")},
+        "files": {k: (out_dir / f"{k}.png").as_posix() for k in ("original", "input_bicubic", "classical", "nag", "gate")},
     }
     (out_dir / "metrics.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     (out_dir / "manifest.json").write_text(stable_json({k: record[k] for k in ("name", "kind", "scale", "checkpoints", "steps")}),
@@ -287,50 +239,17 @@ def run_upload(
     source: str | Path,
     kind: str = "auto",
     device: str = "auto",
-    update_paper: bool = True,
-    write_report: bool = True,
-    tex: str | Path = "paper/overleaf/main.tex",
-    report_dir: str | Path = "temp",
-    cover: dict[str, str | None] | None = None,
-    rebuild_zip: bool = False,
     original_name: str | None = None,
     out_root: str | Path = OUT_ROOT,
 ) -> dict[str, Any]:
-    """Enhance, then (optionally) update the paper and write both reports."""
+    """Enhance one image. The run folder is the only thing written."""
     record = enhance_image(source, kind=kind, device=device, out_root=out_root, original_name=original_name)
-    outputs: dict[str, str] = {}
-
-    latex_block = None
-    if update_paper:
-        from sensorsim.enhance.latex import insert_upload_figure
-
-        res = insert_upload_figure(record, tex=tex, rebuild_zip=rebuild_zip)
-        outputs["tex"] = res["tex"]
-        outputs["tex_backup"] = res["backup"]
-        latex_block = res["block"]
-    else:
-        from sensorsim.enhance.latex import upload_block
-
-        latex_block = upload_block(record)
-    snippet = Path(record["out_dir"]) / "latex_snippet.tex"
-    snippet.write_text(latex_block, encoding="utf-8")
-    outputs["latex_snippet"] = snippet.as_posix()
-
-    if write_report:
-        from sensorsim.enhance.report import fill_rpt_template, write_upload_report
-
-        outputs.update(write_upload_report(record, latex_block, out_dir=report_dir))
-        try:
-            outputs["rpt_docx"] = fill_rpt_template(record, latex_block, out_dir=report_dir, cover=cover or {})
-        except FileNotFoundError as exc:
-            outputs["rpt_docx_error"] = str(exc)
-
     summary = {
         "kind": record["kind"],
         "scale": record["scale"],
         "output_shape": record["output_shape"],
         "seconds": record["seconds"],
         "metrics": {k: {m: round(v, 3) for m, v in d.items()} for k, d in record["metrics"].items()},
-        "outputs": {**record["files"], **outputs},
+        "outputs": record["files"],
     }
     return {"record": record, "summary": summary}

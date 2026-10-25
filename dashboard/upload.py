@@ -9,10 +9,13 @@ has exactly the routes it always had.
 Routes::
 
     GET  /upload               the frontend, opened on its Enhance page
-    POST /api/enhance          multipart "file" (+ kind, update_paper, write_report)
+    POST /api/enhance          multipart "file" (+ optional kind: auto, photo or diagram)
 
-The files a run writes are served by the read-only app at ``/enhanced/<path>``
-(it lists past runs too), so this blueprint adds computation and nothing else.
+An upload is enhanced and that is all: the run's own folder under
+``experiments/enhance/`` is the only thing written. The paper and the reports
+are never touched from here. Those files are served by the read-only app at
+``/enhanced/<path>`` (it lists past runs too), so this blueprint adds
+computation and nothing else.
 
 Uploads are checked by extension *and* decoded with Pillow before anything
 runs, capped by ``MAX_CONTENT_LENGTH``, and processed one at a time - a laptop
@@ -44,8 +47,6 @@ def _default_runner(path: Path, **kwargs: Any) -> dict[str, Any]:
 def create_upload_blueprint(
     out_root: str | Path = "experiments/enhance",
     runner: Callable[..., dict[str, Any]] | None = None,
-    tex: str | Path = "paper/overleaf/main.tex",
-    report_dir: str | Path = "temp",
 ) -> Blueprint:
     bp = Blueprint("upload", __name__)
     root = Path(out_root).resolve()
@@ -69,7 +70,6 @@ def create_upload_blueprint(
         kind = request.form.get("kind", "auto")
         if kind not in ("auto", "photo", "diagram"):
             return jsonify({"error": "kind must be auto, photo or diagram"}), 400
-        flag = lambda key: request.form.get(key, "true").lower() in ("1", "true", "on", "yes")  # noqa: E731
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / name
@@ -85,10 +85,7 @@ def create_upload_blueprint(
             if not lock.acquire(timeout=1):
                 return jsonify({"error": "another image is being enhanced; try again shortly"}), 429
             try:
-                outcome = run(
-                    path, kind=kind, update_paper=flag("update_paper"), write_report=flag("write_report"),
-                    tex=tex, report_dir=report_dir, original_name=file.filename, out_root=root,
-                )
+                outcome = run(path, kind=kind, original_name=file.filename, out_root=root)
             except FileNotFoundError as exc:
                 return jsonify({"error": str(exc)}), 503
             except Exception as exc:  # noqa: BLE001
@@ -112,7 +109,6 @@ def create_upload_blueprint(
             "features": record.get("features"),
             "noise_level_function": record.get("noise_level_function"),
             "urls": urls,
-            "outputs": outcome["summary"]["outputs"],
         }))
 
     return bp

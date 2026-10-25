@@ -9,7 +9,7 @@
     sensorsim dashboard  serve the read-only dashboard over a finished run
     sensorsim weights    fetch or verify the pinned checkpoints
     sensorsim train      train NC-DCE (the proposed curve estimator)
-    sensorsim enhance    enhance one image with NAG; update the paper; write reports
+    sensorsim enhance    enhance one image with NAG
     sensorsim paper-nag  regenerate the NAG section, tables and method report
 """
 
@@ -292,17 +292,7 @@ def _cmd_train(args: argparse.Namespace) -> int:
 def _cmd_enhance(args: argparse.Namespace) -> int:
     from sensorsim.enhance.pipeline import run_upload
 
-    outcome = run_upload(
-        args.image,
-        kind=args.kind,
-        device=args.device,
-        update_paper=not args.no_paper,
-        write_report=not args.no_report,
-        tex=args.tex,
-        report_dir=args.report_dir,
-        cover={"title": args.title, "student": args.student, "uid": args.uid},
-        rebuild_zip=args.zip,
-    )
+    outcome = run_upload(args.image, kind=args.kind, device=args.device)
     print(json.dumps(outcome["summary"], indent=2))
     return 0
 
@@ -319,8 +309,7 @@ def _cmd_paper_nag(args: argparse.Namespace) -> int:
         result = update_paper_with_nag(args.tex, rebuild_zip=not args.no_zip)
         print(f"paper updated: {result['tex']} (backup {result['backup']})")
     if not args.no_report:
-        uploads = sorted(p for p in Path("experiments/enhance").glob("*") if (p / "metrics.json").exists())
-        pdf = write_method_report(assets, out_dir=args.report_dir, upload_dirs=uploads)
+        pdf = write_method_report(assets, out_dir=args.report_dir)
         print(f"method report: {pdf}")
     return 0
 
@@ -389,18 +378,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--device", default=None)
     p.set_defaults(func=_cmd_train)
 
-    p = sub.add_parser("enhance", help="enhance one image with NAG, update the paper, write reports")
+    p = sub.add_parser("enhance", help="enhance one image with NAG into experiments/enhance/")
     p.add_argument("image")
     p.add_argument("--kind", choices=["auto", "photo", "diagram"], default="auto")
     p.add_argument("--device", default="auto")
-    p.add_argument("--no-paper", action="store_true", help="do not touch the LaTeX paper")
-    p.add_argument("--no-report", action="store_true", help="do not write reports to temp/")
-    p.add_argument("--tex", default="paper/overleaf/main.tex")
-    p.add_argument("--report-dir", default="temp")
-    p.add_argument("--title", default=None, help="project title for the RPT template cover")
-    p.add_argument("--student", default=None)
-    p.add_argument("--uid", default=None)
-    p.add_argument("--zip", action="store_true", help="rebuild paper/SensorSim_overleaf.zip")
     p.set_defaults(func=_cmd_enhance)
 
     p = sub.add_parser("paper-nag", help="generate the NAG tables/macros, update the paper, write the PDF")

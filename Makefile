@@ -35,7 +35,7 @@ help:
 	@echo "  make train                   train NC-DCE and its ablations"
 	@echo "  make study                   run + analyze the NAG study"
 	@echo "  make paper-nag               tables, macros, paper section, method PDF"
-	@echo "  make enhance IMAGE=path      enhance one image, update paper, write reports"
+	@echo "  make enhance IMAGE=path      enhance one image into experiments/enhance/"
 	@echo "  make dashboard-upload        dashboard with the upload page enabled"
 	@echo ""
 	@echo "  EXPERIMENT=$(EXPERIMENT)  METRIC=$(METRIC)  BASELINE=$(BASELINE)"

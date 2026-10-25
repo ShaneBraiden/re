@@ -1,19 +1,13 @@
-"""Reports written to ``temp/``: what was done, with the code and the LaTeX.
+"""The NAG method report, written to ``temp/`` by ``sensorsim paper-nag``.
 
 ``write_method_report``
     ``temp/NAG_Method_Report.pdf``. The method, the training, the results
     and ablations, short excerpts of the actual source (pulled with
     :func:`inspect.getsource`, so they cannot drift from the code), and the
     generated LaTeX.
-``write_upload_report``
-    ``temp/enhance_<stem>/report.pdf``. One uploaded image: the steps, the
-    before/after panels, the metrics and the LaTeX block.
-``fill_rpt_template``
-    A filled *copy* of ``temp/RPT_FinalReport_Template.docx``. Only the slots
-    this project can honestly fill are touched: Experiment 3 (diagram output)
-    gets the enhanced figure, and Experiment 10 (Overleaf) gets the generated
-    LaTeX. Every other experiment's output has to come from doing that
-    experiment, so those slots are left as they are.
+
+Enhancing an image never writes a report: an upload's results stay in its own
+folder under ``experiments/enhance/``.
 
 PDFs are rendered by headless Chrome or Edge from the HTML. If neither browser
 is installed, the HTML and Markdown are still written and the result says so.
@@ -23,7 +17,6 @@ from __future__ import annotations
 
 import html
 import inspect
-import json
 import os
 import shutil
 import subprocess
@@ -40,8 +33,6 @@ BROWSERS = [
     "/usr/bin/chromium",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 ]
-
-TEMPLATE = Path("temp/RPT_FinalReport_Template.docx")
 
 CSS = """
 @page { size: A4; margin: 18mm 16mm; }
@@ -134,188 +125,10 @@ def _copy(src: str | Path, dst_dir: Path) -> str:
 
 
 # --------------------------------------------------------------------------
-# Per-upload report
-# --------------------------------------------------------------------------
-
-METRIC_COLUMNS = [("arm", "Output"), ("sharpness", "Sharpness"), ("noise_sigma", "Noise σ̂"),
-                  ("colorfulness", "Colourfulness"), ("nr_quality", "nr_quality"),
-                  ("consistency_psnr", "Consistency PSNR"), ("consistency_ssim", "Consistency SSIM")]
-
-
-def write_upload_report(record: dict[str, Any], latex_block: str, out_dir: str | Path = "temp") -> dict[str, str]:
-    from sensorsim.enhance import guard, noise
-
-    folder = Path(out_dir) / f"enhance_{record['stem']}"
-    img_dir = folder / "img"
-    shutil.rmtree(img_dir, ignore_errors=True)
-    files = {k: _copy(v, img_dir) for k, v in record["files"].items()}
-
-    rows = [{"arm": name, **record["metrics"][key]}
-            for key, name in (("input_bicubic", "Bicubic"), ("classical", "Classical"), ("nag", "NAG (ours)"))]
-    steps = "".join(f"<li><b>{html.escape(s['step'])}</b>: {html.escape(s['detail'])}</li>" for s in record["steps"])
-    ckpts = "".join(f"<li><code>{html.escape(k)}</code> sha256 {html.escape(str(v)[:16])}…</li>"
-                    for k, v in record["checkpoints"].items())
-    body = f"""
-<h1>Enhancement report: {html.escape(record['name'])}</h1>
-<p class="sub">SensorSim · NAG (noise-aware guarded enhancement) · {time.strftime('%d %B %Y')} ·
-{record['input_shape'][1]}×{record['input_shape'][0]} px → {record['output_shape'][1]}×{record['output_shape'][0]} px
-(×{record['scale']:g}) · {record['seconds']} s</p>
-
-<h2>What was done</h2>
-<p>The image was classified as a <b>{html.escape(record['kind'])}</b>. An uploaded file has no capture record,
-so its noise level was estimated blindly from the image. That estimate was then carried through every stage,
-as in the restoration-bank arms.</p>
-<ol>{steps}</ol>
-<p class="small">Checkpoints used:</p><ul class="small">{ckpts or '<li>none</li>'}</ul>
-
-<h2>Before and after</h2>
-<figure><img src="{files['comparison']}" alt="Comparison of bicubic, classical and NAG outputs">
-<figcaption>Full frame of the NAG output, with the region of highest edge energy zoomed below for each
-method.</figcaption></figure>
-<figure><img src="{files['gate']}" alt="Wiener gate map" style="max-height:200px">
-<figcaption>Wiener gate γ: the share of the generator's added detail that was kept. Black means the measured
-image held nothing above the noise there, so no detail was added.</figcaption></figure>
-
-<h2>Metrics</h2>
-{_table_html(rows, METRIC_COLUMNS, {'sharpness': 1, 'noise_sigma': 2, 'colorfulness': 1, 'nr_quality': 2, 'consistency_psnr': 2, 'consistency_ssim': 4})}
-<p class="small">Consistency is measured by downscaling the output back to the input size, matching its tone
-to the upload per channel with an affine fit, then computing PSNR/SSIM against the upload. A high value
-means the output agrees with what the file actually contained, and invented detail lowers it. The other
-columns are the testbench's no-reference proxies; they are not a perceptual study.</p>
-
-<h2>Code (short)</h2>
-<h3>The Wiener gate</h3>{_code(guard.wiener_gate)}
-<h3>Blind noise estimate</h3>{_code(noise.blind_sigma_map)}
-
-<h2>LaTeX inserted into the paper</h2>
-<pre>{html.escape(latex_block)}</pre>
-"""
-    html_path = folder / "report.html"
-    html_path.write_text(_page(f"Enhancement report {record['name']}", body), encoding="utf-8")
-
-    md = [f"# Enhancement report: {record['name']}", "",
-          f"Kind: **{record['kind']}**, {record['input_shape'][1]}x{record['input_shape'][0]} -> "
-          f"{record['output_shape'][1]}x{record['output_shape'][0]} px", "", "## Steps", ""]
-    md += [f"{i + 1}. **{s['step']}**: {s['detail']}" for i, s in enumerate(record["steps"])]
-    md += ["", "## Metrics", "", "| Output | " + " | ".join(lbl for _, lbl in METRIC_COLUMNS[1:]) + " |",
-           "|---" * len(METRIC_COLUMNS) + "|"]
-    for r in rows:
-        md.append(f"| {r['arm']} | " + " | ".join(f"{r[k]:.3f}" for k, _ in METRIC_COLUMNS[1:]) + " |")
-    md += ["", "![comparison](img/comparison.png)", "", "## LaTeX", "", "```latex", latex_block.rstrip(), "```", ""]
-    (folder / "report.md").write_text("\n".join(md), encoding="utf-8")
-
-    pdf = html_to_pdf(html_path, folder / "report.pdf")
-    out = {"report_html": html_path.as_posix(), "report_md": (folder / "report.md").as_posix()}
-    if pdf:
-        out["report_pdf"] = pdf.as_posix()
-    else:
-        out["report_pdf_error"] = "no Chrome/Edge found for PDF rendering; HTML and Markdown written"
-    return out
-
-
-# --------------------------------------------------------------------------
-# RPT course-report template
-# --------------------------------------------------------------------------
-
-def _insert_after(paragraph, new_paragraph) -> None:
-    paragraph._p.addnext(new_paragraph._p)
-
-
-def fill_rpt_template(
-    record: dict[str, Any],
-    latex_block: str,
-    out_dir: str | Path = "temp",
-    cover: dict[str, str | None] | None = None,
-    template: str | Path = TEMPLATE,
-) -> str:
-    """A filled copy of the RPT template; the template itself is never written."""
-    from docx import Document
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Emu, Pt
-
-    template = Path(template)
-    if not template.exists():
-        raise FileNotFoundError(f"RPT template not found at {template}")
-    doc = Document(str(template))
-    section = doc.sections[-1]
-    usable = Emu(section.page_width - section.left_margin - section.right_margin)
-    cover = {k: v for k, v in (cover or {}).items() if v}
-
-    def replace_runs(paragraph, text: str) -> None:
-        first = paragraph.runs[0]
-        first.text = text
-        for run in paragraph.runs[1:]:
-            run.text = ""
-
-    for p in doc.paragraphs:
-        if cover.get("title") and p.text.strip() == "PROJECT TITLE":
-            replace_runs(p, cover["title"].upper())
-        elif (cover.get("student") or cover.get("uid")) and p.text.strip().startswith("Student Name"):
-            replace_runs(p, f"{cover.get('student', 'Student Name')} – {cover.get('uid', 'UID')}")
-        elif (cover.get("student") or cover.get("uid")) and "</Student Name/>(UID)" in p.text:
-            for run in p.runs:
-                run.text = run.text.replace("</Student Name/>", cover.get("student", "Student Name")).replace(
-                    "(UID)", f"({cover.get('uid', 'UID')})")
-
-    def fill_output(match: str, intro: str, pictures: list[tuple[str, str]], code: str | None = None) -> bool:
-        for p in doc.paragraphs:
-            if p.text.startswith("Output:") and match in p.text:
-                p.runs[-1].text = intro
-                anchor = p
-                for path, caption in pictures:
-                    pic = doc.add_paragraph()
-                    pic.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    pic.add_run().add_picture(str(path), width=usable)
-                    _insert_after(anchor, pic)
-                    cap = doc.add_paragraph()
-                    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    r = cap.add_run(caption)
-                    r.italic = True
-                    r.font.size = Pt(10)
-                    _insert_after(pic, cap)
-                    anchor = cap
-                if code:
-                    for line in code.rstrip().splitlines():
-                        para = doc.add_paragraph()
-                        para.paragraph_format.space_after = Pt(0)
-                        run = para.add_run(line if line else " ")
-                        run.font.name = "Consolas"
-                        run.font.size = Pt(8)
-                        _insert_after(anchor, para)
-                        anchor = para
-                return True
-        return False
-
-    files = record["files"]
-    fill_output(
-        "Draw.io",
-        f"The research diagram ({record['input_shape'][1]}×{record['input_shape'][0]} px) was enhanced to "
-        f"{record['output_shape'][1]}×{record['output_shape'][0]} px for print using the project's NAG pipeline "
-        f"(noise-guarded Real-ESRGAN). The enhanced diagram and a zoomed comparison are shown below.",
-        [(files["nag"], "Figure: enhanced research diagram (NAG output)."),
-         (files["comparison"], "Figure: zoomed comparison - bicubic, classical baseline, NAG.")],
-    )
-    fill_output(
-        "Overleaf",
-        "Insert your similarity report screenshot here. The LaTeX block below was generated for the "
-        "Overleaf paper; compile it on Overleaf and add the screenshot of the rendered page.",
-        [],
-        code=latex_block,
-    )
-
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    target = out_dir / f"RPT_FinalReport_{record['stem']}.docx"
-    doc.save(str(target))
-    return target.as_posix()
-
-
-# --------------------------------------------------------------------------
 # Method report (the whole contribution)
 # --------------------------------------------------------------------------
 
-def write_method_report(assets: dict[str, Any], out_dir: str | Path = "temp",
-                        upload_dirs: list[str | Path] | None = None) -> str:
+def write_method_report(assets: dict[str, Any], out_dir: str | Path = "temp") -> str:
     from sensorsim.enhance import guard, latex, noise, vpdenoise
     from sensorsim.restore.learned import nag
     from sensorsim.train import nc_dce
@@ -350,17 +163,6 @@ def write_method_report(assets: dict[str, Any], out_dir: str | Path = "temp",
                    "final_noise": v.get("final", {}).get("noise_metric", float("nan")),
                    "sha": str(v.get("sha256", ""))[:16]}
                   for k, v in assets["training"].items()]
-
-    upload_html = ""
-    for d in upload_dirs or []:
-        rec_path = Path(d) / "metrics.json"
-        if rec_path.exists():
-            rec = json.loads(rec_path.read_text(encoding="utf-8"))
-            _copy(rec["files"]["comparison"], img_dir / rec["id"])
-            src = f"img/{rec['id']}/{Path(rec['files']['comparison']).name}"
-            upload_html += (f"<figure><img src='{src}'><figcaption>Upload <code>{html.escape(rec['name'])}</code> "
-                            f"({html.escape(rec['kind'])}), ×{rec['scale']:g}: bicubic, classical baseline, NAG."
-                            f"</figcaption></figure>")
 
     generated = Path("paper/overleaf/generated")
     latex_full = latex.SECTION + "\n% ---- generated/proposed_results.tex ----\n" + \
@@ -434,7 +236,6 @@ with what was measured.</p>
 <ul>{findings}</ul>
 <figure><img src="{figs['nag_curves.png']}"><figcaption>PSNR and SIFT inlier ratio across the sweep.</figcaption></figure>
 <figure><img src="{figs['nag_crops.png']}"><figcaption>Matched crops at the most severe condition.</figcaption></figure>
-{('<h3>Uploaded images</h3>' + upload_html) if upload_html else ''}
 
 <h2>5. Code, in short</h2>
 <p class="small">These excerpts are pulled from the source when the report is built, so they match the code
@@ -458,7 +259,7 @@ markers; a rerun replaces them in place. Every number is a macro from <code>gene
 sensorsim train nc-dce                        # NC-DCE + two ablations
 sensorsim run configs/experiments/enhance_study.yaml
 sensorsim paper-nag                           # tables, figures, macros, paper blocks, this report
-sensorsim enhance image.png                   # one upload: enhance, figure into the paper, reports
+sensorsim enhance image.png                   # enhance one image into experiments/enhance/
 sensorsim dashboard --upload                  # the same, from the browser</pre>
 """
     html_path = folder / "NAG_Method_Report.html"

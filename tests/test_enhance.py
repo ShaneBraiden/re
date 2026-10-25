@@ -1,16 +1,15 @@
-"""The upload flow around NAG: classification, the LaTeX writer, the reports and
-the opt-in dashboard route.
+"""The plumbing around NAG: classification, the LaTeX writer that paper-nag
+uses, and enhancing an uploaded image.
 
 The neural stages are replaced by stubs here. Their behaviour is covered in
 ``test_nag.py``. What these tests pin down is the plumbing:
 - the paper is never edited twice in the same place, and is always backed up;
-- the RPT template is never written to;
+- enhancing an image writes its run folder and nothing else - no paper, no reports;
 - the dashboard has a write route only when one was asked for.
 """
 
 from __future__ import annotations
 
-import hashlib
 import io
 import json
 from pathlib import Path
@@ -21,7 +20,7 @@ import pytest
 
 from sensorsim.data.synthetic import linear_to_srgb, natural_scene
 from sensorsim.enhance.classify import classify_image
-from sensorsim.enhance.latex import escape, insert_upload_figure, update_paper_with_nag, upsert_block
+from sensorsim.enhance.latex import escape, update_paper_with_nag, upsert_block
 
 MINI_TEX = r"""\documentclass{article}
 \newcommand{\NRQ}{\texttt{nr\_quality}}
@@ -103,7 +102,7 @@ def test_nag_paper_update_is_idempotent_and_backed_up(tmp_path):
 
 def _record(tmp_path: Path, stem: str = "my_fig") -> dict:
     files = {}
-    for key in ("original", "input_bicubic", "classical", "nag", "gate", "comparison"):
+    for key in ("original", "input_bicubic", "classical", "nag", "gate"):
         p = tmp_path / f"{key}.png"
         cv2.imwrite(str(p), _diagram())
         files[key] = p.as_posix()
@@ -116,56 +115,40 @@ def _record(tmp_path: Path, stem: str = "my_fig") -> dict:
             "seconds": 1.0, "out_dir": tmp_path.as_posix(), "files": files}
 
 
-def test_upload_figure_lands_after_the_nag_section_and_escapes(tmp_path):
-    paper = tmp_path / "paper"
-    paper.mkdir()
-    tex = paper / "main.tex"
-    tex.write_text(MINI_TEX, encoding="utf-8")
-    update_paper_with_nag(tex, rebuild_zip=False)
-    record = _record(tmp_path)
-
-    insert_upload_figure(record, tex=tex)
-    insert_upload_figure(record, tex=tex)
-    text = tex.read_text(encoding="utf-8")
-    assert text.count("%% AUTOGEN:upload-my_fig BEGIN") == 1
-    assert text.index("AUTOGEN:nag-section END") < text.index("AUTOGEN:upload-my_fig BEGIN")
-    assert (paper / "figures" / "upload_my_fig_comparison.png").exists()
-    assert r"\label{fig:upload-my-fig}" in text
-
-
 # --------------------------------------------------------------------------
-# Reports
+# Enhancing an image writes its run folder and nothing else
 # --------------------------------------------------------------------------
 
-TEMPLATE = Path("temp/RPT_FinalReport_Template.docx")
+def _snapshot(root: Path) -> dict[str, bytes]:
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
 
 
-@pytest.mark.skipif(not TEMPLATE.exists(), reason="RPT template not present")
-def test_rpt_template_is_filled_as_a_copy(tmp_path):
-    docx = pytest.importorskip("docx")
-    from sensorsim.enhance.report import fill_rpt_template
+def test_run_upload_touches_nothing_but_its_run_folder(tmp_path, monkeypatch):
+    from sensorsim.enhance import pipeline
 
-    before = hashlib.sha256(TEMPLATE.read_bytes()).hexdigest()
-    out = fill_rpt_template(_record(tmp_path), "\\begin{figure}x\\end{figure}", out_dir=tmp_path,
-                            cover={"title": "Noise-aware enhancement"})
-    assert hashlib.sha256(TEMPLATE.read_bytes()).hexdigest() == before
+    work = tmp_path / "project"
+    (work / "paper" / "overleaf").mkdir(parents=True)
+    (work / "paper" / "overleaf" / "main.tex").write_text(MINI_TEX, encoding="utf-8")
+    (work / "temp").mkdir()
+    out_root = work / "experiments" / "enhance"
+    monkeypatch.chdir(work)
+    before = _snapshot(work)
 
-    doc = docx.Document(out)
-    texts = [p.text for p in doc.paragraphs]
-    i = next(k for k, t in enumerate(texts) if t.startswith("Output:") and "NAG pipeline" in t)
-    assert doc.paragraphs[i + 1]._p.xpath(".//pic:pic"), "the enhanced image follows the Experiment 3 output"
-    assert "NOISE-AWARE ENHANCEMENT" in texts
-    assert any(t.startswith("Output: Insert your PubMed") for t in texts), "other experiments untouched"
+    def fake_enhance(source, kind, device, out_root, original_name):
+        folder = Path(out_root) / "my_fig-abc"
+        folder.mkdir(parents=True)
+        record = _record(folder)
+        (folder / "metrics.json").write_text(json.dumps(record), encoding="utf-8")
+        return record
 
+    monkeypatch.setattr(pipeline, "enhance_image", fake_enhance)
+    outcome = pipeline.run_upload(work / "in.png", out_root=out_root)
 
-def test_upload_report_writes_html_and_markdown(tmp_path):
-    from sensorsim.enhance.report import write_upload_report
-
-    out = write_upload_report(_record(tmp_path), "\\begin{figure}x\\end{figure}", out_dir=tmp_path)
-    html = Path(out["report_html"]).read_text(encoding="utf-8")
-    assert "def wiener_gate" in html, "code excerpts come from the source"
-    assert "\\begin{figure}" in html
-    assert Path(out["report_md"]).exists()
+    after = _snapshot(work)
+    added = {k for k in after if k not in before}
+    assert added and all(k.startswith("experiments/enhance/my_fig-abc/") for k in added), added
+    assert all(after[k] == v for k, v in before.items()), "an existing file was changed"
+    assert set(outcome["summary"]["outputs"]) == set(outcome["record"]["files"])
 
 
 # --------------------------------------------------------------------------
@@ -187,7 +170,7 @@ def upload_client(tmp_path):
     def fake_runner(path, **kwargs):
         calls.append((Path(path).name, kwargs))
         record = _record(tmp_path)
-        return {"record": record, "summary": {"outputs": {"report_pdf": "temp/x.pdf"}}}
+        return {"record": record, "summary": {"outputs": record["files"]}}
 
     app = create_app(tmp_path / "no-run", enable_upload=True,
                      upload_options={"out_root": tmp_path, "runner": fake_runner})
@@ -224,14 +207,25 @@ def test_upload_rejects_oversized_files(upload_client):
 
 def test_upload_happy_path(upload_client):
     r = upload_client.post("/api/enhance",
-                           data={"file": (io.BytesIO(_png_bytes()), "My Fig.png"), "kind": "auto",
-                                 "update_paper": "false"},
+                           data={"file": (io.BytesIO(_png_bytes()), "My Fig.png"), "kind": "auto"},
                            content_type="multipart/form-data")
     assert r.status_code == 200, r.get_json()
     payload = r.get_json()
     assert payload["kind"] == "diagram"
     assert payload["urls"]["nag"].startswith("/enhanced/my_fig-abc/")
     name, kwargs = upload_client.calls[0]
-    assert name == "My_Fig.png" and kwargs["update_paper"] is False
+    assert name == "My_Fig.png"
     assert upload_client.get("/upload").status_code == 200
     assert upload_client.get("/api/health").get_json()["upload"] is True
+
+
+def test_upload_only_enhances(upload_client, tmp_path):
+    """Whatever a client sends, the route asks for an enhancement and nothing more."""
+    r = upload_client.post("/api/enhance",
+                           data={"file": (io.BytesIO(_png_bytes()), "fig.png"), "kind": "photo",
+                                 "update_paper": "true", "write_report": "true"},
+                           content_type="multipart/form-data")
+    assert r.status_code == 200, r.get_json()
+    _, kwargs = upload_client.calls[0]
+    assert set(kwargs) == {"kind", "original_name", "out_root"}
+    assert kwargs["kind"] == "photo"

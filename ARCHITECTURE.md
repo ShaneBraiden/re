@@ -152,7 +152,7 @@ Long format, not wide. Every downstream plot is a groupby on this.
 
 Thin read-only layer over cached results. Severity slider, pipeline selector, synchronized image comparison, live metric readout. Its purpose is demonstration and figure generation, not computation. Flask + React, or Streamlit if time is short.
 
-One opt-in exception: `sensorsim dashboard --upload` registers `dashboard/upload.py`, which adds a single POST route (`/api/enhance`) for running NAG on an uploaded image. Without the flag the app has no write routes, and `tests/test_dashboard.py` still enforces that.
+One opt-in exception: `sensorsim dashboard --upload` registers `dashboard/upload.py`, which adds a single POST route (`/api/enhance`) for running NAG on an uploaded image. An upload is only enhanced: its run folder under `experiments/enhance/` is the one thing written, never the paper or a report. Without the flag the app has no write routes, and `tests/test_dashboard.py` still enforces that.
 
 ### NAG — noise-aware guarded enhancement (`sensorsim/enhance/`)
 

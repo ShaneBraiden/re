@@ -14,7 +14,7 @@ flask>=2.3
 # rawpy>=0.18          # real RAW decode (.dng/.arw/.cr2); synthetic corpus works without it
 # torch>=2.0           # learned pipeline bank (zero_dce, nafnet, restormer, real_esrgan, learned_isp)
 #                      # and NAG (nc_dce, g_esrgan, nag); GPU wheels: --index-url https://download.pytorch.org/whl/cu126
-# python-docx>=1.1     # filling the RPT report template (sensorsim enhance)
+# python-docx>=1.1     # paper/make_docx.py, the Word version of the paper
 # lpips>=0.1.4         # LPIPS perceptual metric
 # pytesseract>=0.3.10  # OCR character accuracy (also needs the tesseract binary)
 # ultralytics>=8.0     # detection mAP

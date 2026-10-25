@@ -207,6 +207,4 @@ export interface EnhancementList {
   runs: Enhancement[];
 }
 
-export interface EnhanceResult extends Omit<Enhancement, "modified"> {
-  outputs: Record<string, string>;
-}
+export type EnhanceResult = Omit<Enhancement, "modified">;

@@ -64,7 +64,7 @@ That is what makes runs resumable and results auditable.
 | `sensorsim dashboard <experiment>` | serve the dashboard (`--upload` adds the one write route, for enhancing uploads) |
 | `sensorsim weights fetch\|verify` | download / check the pinned Real-ESRGAN and Zero-DCE checkpoints |
 | `sensorsim train nc-dce` | train NC-DCE and its two ablations |
-| `sensorsim enhance <image>` | run NAG on one image, add its figure to the paper, write reports to `temp/` |
+| `sensorsim enhance <image>` | run NAG on one image; the result goes to `experiments/enhance/` and nothing else is written |
 | `sensorsim paper-nag` | regenerate the NAG tables, macros, paper section and method PDF |
 
 Run these as `python -m sensorsim.cli <command>`, or as `sensorsim <command>`
@@ -130,16 +130,21 @@ through every stage:
 
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu126   # or the CPU wheel
-pip install python-docx
 
 python -m sensorsim.cli weights fetch                     # pinned, hash-checked
 python -m sensorsim.cli train nc-dce                      # ~13 min per variant on a laptop GPU
 python -m sensorsim.cli run configs/experiments/enhance_study.yaml
 python -m sensorsim.cli analyze experiments/enhance_study/metrics.csv --figures paper/figures/enhance_study
 python -m sensorsim.cli paper-nag                         # tables, macros, paper blocks, temp/NAG_Method_Report.pdf
-python -m sensorsim.cli enhance image.png --title "..."   # one image -> figure in the paper + reports in temp/
+python -m sensorsim.cli enhance image.png                 # one image -> experiments/enhance/<name>-<hash>/
 python -m sensorsim.cli dashboard experiments/pilot --upload   # the same from the browser, on the Enhance page
 ```
+
+Enhancing an image, from the command line or the Enhance page, only enhances
+it. Its folder holds the original, the enhanced image, the bicubic and
+classical baselines it is compared with, the Wiener gate map and a record of
+the steps and metrics. The paper and the reports are never touched; only
+`paper-nag` writes those, from the study run.
 
 The paper is edited only between `%% AUTOGEN:<key>` markers, and only after a
 timestamped backup. A rerun replaces those blocks rather than adding to them.
@@ -152,6 +157,7 @@ PDF first (on Overleaf, or locally with any engine that keeps `main.aux` and
 `main.bbl`), then convert, so section, figure and citation numbers match:
 
 ```bash
+pip install python-docx
 tectonic --keep-intermediates --outdir paper/build paper/overleaf/main.tex
 python paper/make_docx.py                                 # -> paper/SensorSim_IEEE_Paper.docx
 ```

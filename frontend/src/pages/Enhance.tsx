@@ -5,7 +5,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { CheckCircle2, ImageIcon, ImageUp, Lock, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { PageHeader } from "../components/Layout";
 import { Badge, Button, Card, CopyCommand, EmptyState, ErrorBanner, Field, Segmented, Skeleton, Spinner } from "../components/ui";
@@ -74,7 +74,7 @@ function RunTile({ run }: { run: Enhancement }) {
   const { link } = useRun();
   const [ih, iw] = run.input_shape ?? [];
   const [oh, ow] = run.output_shape ?? [];
-  const thumb = run.urls.nag ?? run.urls.comparison ?? run.urls.original;
+  const thumb = run.urls.nag ?? run.urls.original;
   return (
     <Link
       to={link(`/enhance/${encodeURIComponent(run.id)}`)}
@@ -128,8 +128,6 @@ function UploadCard() {
   const [size, setSize] = useState<[number, number] | null>(null);
   const [over, setOver] = useState(false);
   const [kind, setKind] = useState<Kind>("auto");
-  const [updatePaper, setUpdatePaper] = useState(true);
-  const [writeReport, setWriteReport] = useState(true);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
@@ -138,7 +136,7 @@ function UploadCard() {
     mutationFn: (form: FormData) => api.enhance(form),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["enhancements"] });
-      navigate(link(`/enhance/${encodeURIComponent(result.id)}`), { state: { outputs: result.outputs } });
+      navigate(link(`/enhance/${encodeURIComponent(result.id)}`));
     },
   });
 
@@ -166,13 +164,14 @@ function UploadCard() {
     const form = new FormData();
     form.append("file", file);
     form.append("kind", kind);
-    form.append("update_paper", String(updatePaper));
-    form.append("write_report", String(writeReport));
     mutation.mutate(form);
   };
 
   return (
-    <Card title="Upload an image" sub="Processed on this machine, one image at a time. Nothing leaves it.">
+    <Card
+      title="Upload an image"
+      sub="Enhanced on this machine, one image at a time. The result is saved under experiments/enhance/ and nothing else is written."
+    >
       <form onSubmit={submit} className="flex flex-col gap-4">
         <label
           onDragEnter={(e) => {
@@ -241,15 +240,6 @@ function UploadCard() {
           />
         </Field>
 
-        <div className="flex flex-col gap-2.5">
-          <Check checked={updatePaper} onChange={setUpdatePaper} title="Add the result as a figure in the LaTeX paper">
-            paper/overleaf/main.tex, between AUTOGEN markers, after a timestamped backup
-          </Check>
-          <Check checked={writeReport} onChange={setWriteReport} title="Write the PDF report and fill the RPT template">
-            into temp/
-          </Check>
-        </div>
-
         <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
           <Button variant="primary" type="submit" disabled={!file || tooBig || mutation.isPending}>
             {mutation.isPending ? <Spinner size={14} /> : <Sparkles size={15} />}
@@ -272,18 +262,6 @@ function UploadCard() {
         {mutation.error && <ErrorBanner>{String((mutation.error as Error).message)}</ErrorBanner>}
       </form>
     </Card>
-  );
-}
-
-function Check({ checked, onChange, title, children }: { checked: boolean; onChange: (v: boolean) => void; title: string; children: ReactNode }) {
-  return (
-    <label className="flex cursor-pointer items-start gap-2.5">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-4 accent-[var(--accent)]" />
-      <span className="flex flex-col">
-        <span className="text-[13px] font-medium text-fg">{title}</span>
-        <span className="text-xs text-fg-3">{children}</span>
-      </span>
-    </label>
   );
 }
 

@@ -20,7 +20,6 @@ import shutil
 import time
 import zipfile
 from pathlib import Path
-from typing import Any
 
 PAPER_DIR = Path("paper/overleaf")
 DEFAULT_TEX = PAPER_DIR / "main.tex"
@@ -298,78 +297,3 @@ def _ensure_bib(bib: Path) -> None:
     missing = [entry for key, entry in BIB_ADDITIONS.items() if f"{{{key}," not in text]
     if missing:
         bib.write_text(text.rstrip() + "\n\n" + "\n\n".join(missing) + "\n", encoding="utf-8")
-
-
-# --------------------------------------------------------------------------
-# One uploaded image
-# --------------------------------------------------------------------------
-
-def upload_key(record: dict[str, Any]) -> str:
-    return f"upload-{record['stem']}"
-
-
-def upload_block(record: dict[str, Any], figure_prefix: str | None = None) -> str:
-    """A figure and a small table for one enhanced upload."""
-    stem = record["stem"]
-    prefix = figure_prefix or f"upload_{stem}"
-    m = record["metrics"]
-    label = f"fig:upload-{stem.replace('_', '-')}"
-    rows = []
-    for key, name in (("input_bicubic", "Bicubic"), ("classical", "Classical"), ("nag", "NAG (ours)")):
-        d = m[key]
-        rows.append(f"{name} & {d['sharpness']:.1f} & {d['noise_sigma']:.2f} & {d['nr_quality']:.2f} & "
-                    f"{d['consistency_psnr']:.1f} & {d['consistency_ssim']:.3f} \\\\")
-    method = ("G-ESRGAN with the compact Real-ESRGAN generator, a white-point snap and a mild unsharp mask"
-              if record["kind"] == "diagram" else
-              "NC-DCE (when the frame is dark), VP-denoise and G-ESRGAN")
-    in_h, in_w = record["input_shape"]
-    out_h, out_w = record["output_shape"]
-    return rf"""\begin{{figure}}[!t]
-  \centering
-  \includegraphics[width=\columnwidth]{{{prefix}_comparison.png}}
-  \caption{{NAG applied to an uploaded {escape(record['kind'])} ({in_w}$\times${in_h}~px to
-  {out_w}$\times${out_h}~px). The upload has no capture record, so it uses the blind noise estimate.
-  Pipeline: {method}. Bottom row: the same crop from bicubic upscaling, a classical baseline
-  (bicubic, non-local means, unsharp mask) and NAG.}}
-  \label{{{label}}}
-\end{{figure}}
-
-\begin{{table}}[!t]
-  \centering
-  \caption{{No-reference scores and tone-matched consistency with the uploaded file
-  (output downscaled to the input size, per-channel affine tone match, then PSNR and SSIM)
-  for Fig.~\ref{{{label}}}.}}
-  \label{{tab:upload-{stem.replace('_', '-')}}}
-  \footnotesize
-  \begin{{tabular}}{{@{{}}lrrrrr@{{}}}}
-    \toprule
-    & Sharp. & Noise & \NRQ & PSNR & SSIM \\
-    \midrule
-    {chr(10).join('    ' + r for r in rows).strip()}
-    \bottomrule
-  \end{{tabular}}
-\end{{table}}
-"""
-
-
-def insert_upload_figure(record: dict[str, Any], tex: str | Path = DEFAULT_TEX, rebuild_zip: bool = False) -> dict[str, str]:
-    """Copy the upload's figures into the paper and insert or refresh its block."""
-    tex = Path(tex)
-    fig_dir = tex.parent / "figures"
-    fig_dir.mkdir(parents=True, exist_ok=True)
-    prefix = f"upload_{record['stem']}"
-    shutil.copy2(record["files"]["comparison"], fig_dir / f"{prefix}_comparison.png")
-    shutil.copy2(record["files"]["nag"], fig_dir / f"{prefix}_enhanced.png")
-
-    block = upload_block(record, prefix)
-    text = tex.read_text(encoding="utf-8")
-    # After the NAG section when it exists, otherwise just before Discussion.
-    if "%% AUTOGEN:nag-section END" in text:
-        anchor, where = "%% AUTOGEN:nag-section END", "after"
-    else:
-        anchor, where = DISCUSSION, "before"
-    result = write_blocks(tex, [(upload_key(record), block, anchor, where)])
-    result["block"] = block
-    if rebuild_zip:
-        result["zip"] = rebuild_overleaf_zip(tex.parent).as_posix()
-    return result

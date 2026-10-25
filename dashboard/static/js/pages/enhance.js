@@ -31,10 +31,6 @@ const METRIC_COLUMNS = [
 ];
 const METRIC_ROWS = [["input_bicubic", "Bicubic upscale"], ["classical", "Classical pipeline"], ["nag", "NAG (ours)"]];
 
-/* Report paths from an upload made in this session, keyed by run id; the
- * history on disk does not record them. */
-const freshOutputs = new Map();
-
 export async function render(main, ctx, stale) {
   if (ctx.params.id) return renderResult(main, ctx, stale, ctx.params.id);
 
@@ -67,8 +63,6 @@ function uploadCard(ctx, onDone) {
   const meta = h("span.hint", null, "PNG, JPEG, WebP, BMP or TIFF · up to 20 MB");
   const zone = h("label.dropzone", null, input, preview, icon("upload", 26), titleEl, meta);
   let kind = "auto";
-  const updatePaper = h("input", { type: "checkbox", checked: true });
-  const writeReport = h("input", { type: "checkbox", checked: true });
   const submit = h("button.btn.primary", { type: "submit", disabled: true }, icon("enhance", 16), "Enhance image");
   const status = h("div.status", { role: "status", "aria-live": "polite" });
   let file = null;
@@ -98,8 +92,6 @@ function uploadCard(ctx, onDone) {
     zone,
     h("div.option", null, h("span.field-label", null, "Image type"),
       segmented([["auto", "Detect"], ["photo", "Photo"], ["diagram", "Diagram / screenshot"]], kind, (v) => { kind = v; }, { label: "Image type" })),
-    h("label.check", null, updatePaper, h("span", null, "Add the result as a figure in the LaTeX paper", h("span.hint.block", null, "paper/overleaf/main.tex, between AUTOGEN markers, after a timestamped backup"))),
-    h("label.check", null, writeReport, h("span", null, "Write the PDF report and fill the RPT template", h("span.hint.block", null, "into temp/"))),
     h("div.form-actions", null, submit),
     status);
 
@@ -109,8 +101,6 @@ function uploadCard(ctx, onDone) {
     const body = new FormData();
     body.append("file", file);
     body.append("kind", kind);
-    body.append("update_paper", String(updatePaper.checked));
-    body.append("write_report", String(writeReport.checked));
 
     submit.disabled = true;
     form.classList.add("busy");
@@ -127,7 +117,6 @@ function uploadCard(ctx, onDone) {
       if (!response.ok) {
         throw new Error(response.status === 413 ? "That file is over the 20 MB limit." : payload.error || `HTTP ${response.status}`);
       }
-      freshOutputs.set(payload.id, payload.outputs);
       clear(status, h("div.progress.done", null, icon("check", 16), `Done in ${fmt(payload.seconds, 1)} s.`));
       await onDone();
       ctx.go("enhance", { id: payload.id });
@@ -140,7 +129,7 @@ function uploadCard(ctx, onDone) {
     }
   });
 
-  return card("Upload an image", { sub: "Processed on this machine, one image at a time. Nothing leaves it." }, form);
+  return card("Upload an image", { sub: "Enhanced on this machine, one image at a time. The result is saved under experiments/enhance/ and nothing else is written." }, form);
 }
 
 function disabledCard(ctx) {
@@ -174,7 +163,7 @@ function historyCard(runs, ctx) {
     h("div.runs", null, runs.map((run) => {
       const [ih, iw] = run.input_shape ?? [];
       const [oh, ow] = run.output_shape ?? [];
-      const thumb = run.urls.comparison ?? run.urls.nag ?? run.urls.original;
+      const thumb = run.urls.nag ?? run.urls.original;
       const link = h("a.run", { href: ctx.link("enhance", { id: run.id }) },
         h("div.run-thumb", null, thumb ? h("img", { src: thumb, alt: "", loading: "lazy" }) : icon("image", 28)),
         h("div.run-body", null,
@@ -262,16 +251,13 @@ async function renderResult(main, ctx, stale, id) {
     }, chart.el);
   }
 
-  const outputs = freshOutputs.get(run.id);
   const files = card("Files", { sub: `experiments/enhance/${run.id}/` },
     h("ul.files", null, Object.entries(run.urls).map(([key, url]) => {
       const name = url.split("/").pop();
       const open = h("button.link-btn", { type: "button" }, OUTPUTS[key] ?? key);
       open.addEventListener("click", () => openLightbox(url, `${OUTPUTS[key] ?? key} — ${name}`));
       return h("li", null, icon("image", 16), open, h("a.hint", { href: url, target: "_blank", rel: "noopener" }, name));
-    })),
-    outputs ? [h("h3.sub-head", null, "Written by this upload"), h("ul.files", null, Object.entries(outputs).map(([k, v]) =>
-      h("li", null, icon("file", 16), h("span.muted", null, k.replaceAll("_", " ")), h("code", null, String(v)))))] : null);
+    })));
 
   clear(main,
     h("div.result-grid", null,

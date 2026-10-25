@@ -1,9 +1,9 @@
 /* One enhancement run: before/after comparison, what was done, the
  * no-reference metrics, the estimated noise map and every file it wrote. */
 
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useLocation, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { CompareViewer } from "../components/CompareViewer";
 import { DataTable, ExportButton, type Column } from "../components/DataTable";
 import { PageHeader } from "../components/Layout";
@@ -21,6 +21,7 @@ const OUTPUTS: Record<string, string> = {
   classical: "Classical pipeline",
   nag: "NAG (ours)",
   gate: "Wiener gate map",
+  // Runs made before enhancing stopped writing paper figures still have one.
   comparison: "Comparison figure",
 };
 
@@ -85,8 +86,6 @@ export default function EnhanceResult() {
 }
 
 function Result({ run, back }: { run: Enhancement; back: ReactNode }) {
-  const location = useLocation();
-  const outputs = (location.state as { outputs?: Record<string, string> } | null)?.outputs;
   const [ih, iw] = run.input_shape ?? [];
   const [oh, ow] = run.output_shape ?? [];
 
@@ -166,22 +165,6 @@ function Result({ run, back }: { run: Enhancement; back: ReactNode }) {
                 </li>
               ))}
             </ul>
-            {outputs && (
-              <div className="mt-4 border-t border-line pt-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-fg-3">Written by this upload</h3>
-                <ul className="flex flex-col gap-1.5">
-                  {Object.entries(outputs).map(([key, value]) => (
-                    <li key={key} className="flex min-w-0 items-center gap-2 text-[13px]">
-                      <FileText size={14} className="shrink-0 text-fg-3" />
-                      <span className="shrink-0 text-fg-2">{key.replaceAll("_", " ")}</span>
-                      <code className="min-w-0 truncate text-fg-3" title={String(value)}>
-                        {String(value)}
-                      </code>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </Card>
         </div>
       </div>
