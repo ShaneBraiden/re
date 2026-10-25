@@ -75,9 +75,21 @@ after `pip install -e .`.
 ## The dashboard
 
 ```bash
+cd frontend && npm install && npm run build && cd ..           # once, and after frontend changes (Node 20+)
 python -m sensorsim.cli dashboard experiments/pilot            # http://127.0.0.1:5000
 python -m sensorsim.cli dashboard experiments/pilot --upload   # also enables image upload
 ```
+
+The front end is a React + TypeScript app in `frontend/` (Vite, Tailwind,
+TanStack Query, Recharts). `npm run build` writes it to `dashboard/web/`, and
+the dashboard serves it at `/`. Skip the build and the dashboard serves the
+original no-build front end from `dashboard/static/` instead, so Node is never
+required to look at a run; that one is always at `/classic` too.
+
+To work on the front end, run the dashboard as above and `npm run dev` in
+`frontend/` (or `make frontend-dev`): Vite serves the app on
+http://localhost:5173 with live reload and forwards every data route to the
+dashboard on port 5000.
 
 | Page | What it shows |
 |------|---------------|
@@ -90,9 +102,10 @@ Every run next to the one you name (any folder in `experiments/` with a
 `dashboard.json`) is in the run switcher, and every view is a URL —
 `#/explore?exp=enhance_study&image=nat_00&sev=4` reopens exactly that comparison.
 Analysis tables are read from `paper/figures/<run>/`, or from `paper/figures/`
-for the run whose arms match it. The front end is plain ES modules with no build
-step and no CDN, so it runs offline; every route except the opt-in upload is a
-GET over files earlier stages wrote.
+for the run whose arms match it. Every chart has a table view and every table a
+CSV export of the raw values. The built bundle carries its own fonts and loads
+nothing from a CDN, so it runs offline; every route except the opt-in upload is
+a GET over files earlier stages wrote.
 
 ---
 
@@ -194,10 +207,11 @@ the order it used, so a run made either way is self-describing.
 difference.)
 
 **Dashboard stack.** Section 3 says "Flask + React, or Streamlit if time is
-short". This is Flask plus a zero-build vanilla-JS front end. React would need a
-CDN script tag or an npm build; the phase 6 gate is "demo runs offline from
-cached results", and a CDN dependency fails that gate the first time a
-conference room has no wifi.
+short". This is Flask plus a React front end built ahead of time with Vite. The
+phase 6 gate is "demo runs offline from cached results", and a CDN dependency
+fails that gate the first time a conference room has no wifi, so the build
+bundles everything, fonts included, and the original zero-build vanilla-JS
+front end stays as the fallback for a checkout that has not been built.
 
 ---
 
@@ -326,7 +340,8 @@ sensorsim/
   data/           synthetic corpus
   config.py       config loading and sweep construction
   experiment.py   the run orchestrator - the only place the stages meet
-dashboard/        Flask backend + zero-build front end
+dashboard/        Flask backend; serves web/ (the built React app) or static/ (classic, zero-build)
+frontend/         React + TypeScript source for the dashboard, built into dashboard/web
 experiments/      run outputs (gitignored except manifests and metrics tables)
 paper/            LaTeX source; figures/ is regenerated, never hand-made
 tests/

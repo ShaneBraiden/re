@@ -197,7 +197,8 @@ sensorsim/
 │   └── io/
 │       ├── raw.py            # rawpy loaders
 │       └── manifest.py       # run tracking
-├── dashboard/
+├── dashboard/                # Flask API; serves the built frontend
+├── frontend/                 # React + TypeScript dashboard (Vite), built into dashboard/web
 ├── experiments/              # run outputs, gitignored except manifests
 ├── paper/
 │   ├── main.tex

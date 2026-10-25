@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="SensorSim: how much of the information weaker camera hardware loses can each restoration pipeline win back." />
+    <title>SensorSim</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      // Before first paint, so a stored theme never flashes the other one.
+      try {
+        const theme = localStorage.getItem("sensorsim-theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch (_) {
+        /* storage blocked: follow the OS */
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>The SensorSim dashboard needs JavaScript.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

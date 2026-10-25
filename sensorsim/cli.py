@@ -251,8 +251,12 @@ def _cmd_pipelines(args: argparse.Namespace) -> int:
 def _cmd_dashboard(args: argparse.Namespace) -> int:
     from dashboard.app import create_app
 
+    from dashboard.app import WEB_DIR
+
     app = create_app(args.experiment, enable_upload=args.upload)
     print(f"serving {args.experiment} at http://{args.host}:{args.port}")
+    if not (WEB_DIR / "index.html").is_file():
+        print("  (classic frontend - for the React one: cd frontend && npm install && npm run build)")
     if args.upload:
         print(f"image upload enabled at http://{args.host}:{args.port}/upload")
     app.run(host=args.host, port=args.port, debug=args.debug)

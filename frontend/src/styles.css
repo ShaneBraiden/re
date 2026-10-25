@@ -1,0 +1,274 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* Design tokens. Components never name a raw colour: they use these through
+ * the Tailwind utilities mapped in @theme below (bg-surface, text-fg-2, ...),
+ * so a theme switch is one attribute on <html> and nothing redraws.
+ *
+ * The series hues are fixed per pipeline by name (src/lib/pipelines.ts), never
+ * by position, so filtering arms never repaints the survivors. The pairs the
+ * study compares sit on hues that stay apart under the common colour-vision
+ * deficiencies, and identity is also carried by dash pattern, legend and label. */
+
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f2f4f7;
+  --surface-3: #e8ebf0;
+  --border: #e3e6eb;
+  --border-strong: #cdd2da;
+  --text: #0e1525;
+  --text-2: #475163;
+  --text-3: #7a8394;
+  --accent: #2f62e9;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(47 98 233 / 0.1);
+  --good: #13803f;
+  --good-soft: rgb(19 128 63 / 0.1);
+  --bad: #cf2c2c;
+  --bad-soft: rgb(207 44 44 / 0.09);
+  --warn: #b25c00;
+  --warn-soft: rgb(178 92 0 / 0.1);
+  --grid: #edf0f3;
+  --axis: #9aa2b0;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-lg: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.08);
+
+  --baseline: #6b7280;
+  --series-1: #2f62e9;
+  --series-2: #e3620b;
+  --series-3: #0b968a;
+  --series-4: #b62fc7;
+  --series-5: #e0284f;
+  --series-6: #1d9a3e;
+  --series-7: #7247e0;
+  --series-8: #b98a00;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0d13;
+    --surface: #11151d;
+    --surface-2: #171c26;
+    --surface-3: #1f2532;
+    --border: #222937;
+    --border-strong: #323b4c;
+    --text: #e7eaf0;
+    --text-2: #a4adbd;
+    --text-3: #6d7688;
+    --accent: #5b8cff;
+    --accent-fg: #0a0d13;
+    --accent-soft: rgb(91 140 255 / 0.14);
+    --good: #3ccf75;
+    --good-soft: rgb(60 207 117 / 0.12);
+    --bad: #ff6b6b;
+    --bad-soft: rgb(255 107 107 / 0.12);
+    --warn: #f5a524;
+    --warn-soft: rgb(245 165 36 / 0.13);
+    --grid: #1a202b;
+    --axis: #5d6678;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.6);
+
+    --baseline: #9aa1ad;
+    --series-1: #5b8cff;
+    --series-2: #ff8a3d;
+    --series-3: #2fd0bf;
+    --series-4: #e17cf0;
+    --series-5: #ff6b86;
+    --series-6: #4fd16b;
+    --series-7: #a58bff;
+    --series-8: #f2c335;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0d13;
+  --surface: #11151d;
+  --surface-2: #171c26;
+  --surface-3: #1f2532;
+  --border: #222937;
+  --border-strong: #323b4c;
+  --text: #e7eaf0;
+  --text-2: #a4adbd;
+  --text-3: #6d7688;
+  --accent: #5b8cff;
+  --accent-fg: #0a0d13;
+  --accent-soft: rgb(91 140 255 / 0.14);
+  --good: #3ccf75;
+  --good-soft: rgb(60 207 117 / 0.12);
+  --bad: #ff6b6b;
+  --bad-soft: rgb(255 107 107 / 0.12);
+  --warn: #f5a524;
+  --warn-soft: rgb(245 165 36 / 0.13);
+  --grid: #1a202b;
+  --axis: #5d6678;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 16px 40px -8px rgb(0 0 0 / 0.6);
+
+  --baseline: #9aa1ad;
+  --series-1: #5b8cff;
+  --series-2: #ff8a3d;
+  --series-3: #2fd0bf;
+  --series-4: #e17cf0;
+  --series-5: #ff6b86;
+  --series-6: #4fd16b;
+  --series-7: #a58bff;
+  --series-8: #f2c335;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  code,
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+  }
+}
+
+@layer components {
+  /* Tabular figures wherever numbers line up in columns. */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  /* Native range input, restyled: the track shows progress to the thumb. */
+  .range {
+    appearance: none;
+    width: 100%;
+    height: 20px;
+    background: transparent;
+    cursor: pointer;
+  }
+  .range::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--surface-3) var(--fill, 0%));
+  }
+  .range::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--surface-3) var(--fill, 0%));
+  }
+  .range::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -7px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    box-shadow: var(--shadow);
+    transition: transform 120ms ease;
+  }
+  .range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+  }
+  .range:active::-webkit-slider-thumb {
+    transform: scale(1.12);
+  }
+
+  dialog.lightbox::backdrop {
+    background: rgb(5 8 14 / 0.78);
+    backdrop-filter: blur(3px);
+  }
+
+  .pixelated img {
+    image-rendering: pixelated;
+  }
+
+  /* Recharts: let tokens drive its text and grid. */
+  .recharts-cartesian-axis-tick-value {
+    fill: var(--text-3);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .recharts-surface:focus,
+  .recharts-wrapper:focus {
+    outline: none;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -50,3 +50,10 @@ paper/figures/**
 !paper/figures/.gitkeep
 
 notebooks/.ipynb_checkpoints/
+
+# The React frontend: dependencies, and the bundle `npm run build` writes for
+# the dashboard to serve. Built, never committed - without it the dashboard
+# serves the classic frontend in dashboard/static.
+frontend/node_modules/
+frontend/*.tsbuildinfo
+dashboard/web/

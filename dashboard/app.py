@@ -22,6 +22,12 @@ The single exception to read-only is opt-in: ``create_app(..., enable_upload=Tru
 ``dashboard/upload.py``, which adds one POST route for enhancing an uploaded
 image. Without the flag, the app is exactly the read-only app described above.
 
+There are two frontends over the same API. The React app in ``frontend/`` is
+built into ``dashboard/web`` (``cd frontend && npm install && npm run build``)
+and served at ``/`` when that build exists. The original no-build frontend in
+``dashboard/static`` is always at ``/classic``, and stands in at ``/`` on a
+checkout where nothing has been built, so the dashboard never needs Node to run.
+
 Serve it with::
 
     sensorsim dashboard experiments/pilot
@@ -36,9 +42,11 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, abort, jsonify, request, send_from_directory
+from flask import Flask, abort, current_app, jsonify, request, send_from_directory
 
 STATIC_DIR = Path(__file__).parent / "static"
+#: Where ``npm run build`` in frontend/ writes the React app. Not tracked.
+WEB_DIR = Path(__file__).parent / "web"
 
 # The frontend is ES modules, and a browser refuses to run a module served as
 # text/plain - which is what the Windows registry maps .js to on some machines.
@@ -258,6 +266,21 @@ class Catalog:
             raise UnknownExperiment(f"no run named {name!r} next to {self.default.root}") from None
 
 
+def frontend_page():
+    """The page at ``/``: the built React app if there is one, else the classic frontend.
+
+    Never cached, so a rebuild shows on the next reload; the assets it names
+    carry content hashes and are cached instead.
+    """
+    web = Path(current_app.config["SENSORSIM_WEB_DIR"])
+    if (web / "index.html").is_file():
+        response = send_from_directory(web, "index.html")
+    else:
+        response = send_from_directory(STATIC_DIR, "index.html")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 def _enhancement_view(record: dict[str, Any], folder: Path) -> dict[str, Any]:
     """A past enhancement as the frontend shows it: the record plus file URLs."""
     files = record.get("files", {})
@@ -275,8 +298,10 @@ def _enhancement_view(record: dict[str, Any], folder: Path) -> dict[str, Any]:
 
 def create_app(experiment: str | Path = "experiments/pilot", enable_upload: bool = False,
                upload_options: dict[str, Any] | None = None,
-               figures: str | Path = "paper/figures") -> Flask:
+               figures: str | Path = "paper/figures", web: str | Path | None = None) -> Flask:
     app = Flask(__name__, static_folder=None)
+    web_dir = Path(web).resolve() if web is not None else WEB_DIR
+    app.config["SENSORSIM_WEB_DIR"] = str(web_dir)
     catalog = Catalog(experiment)
     store = catalog.default
     figures_root = Path(figures).resolve()
@@ -306,7 +331,17 @@ def create_app(experiment: str | Path = "experiments/pilot", enable_upload: bool
 
     @app.get("/")
     def index_page():
+        return frontend_page()
+
+    @app.get("/classic")
+    def classic_page():
         return send_from_directory(STATIC_DIR, "index.html")
+
+    @app.get("/app/<path:filename>")
+    def web_files(filename: str):
+        # Vite names every built asset by its content hash, so it can be cached for good.
+        hashed = filename.startswith("assets/")
+        return send_from_directory(web_dir, filename, max_age=31536000 if hashed else None)
 
     @app.get("/static/<path:filename>")
     def static_files(filename: str):

@@ -26,14 +26,13 @@ import threading
 from pathlib import Path
 from typing import Any, Callable
 
-from flask import Blueprint, current_app, jsonify, request, send_from_directory
+from flask import Blueprint, current_app, jsonify, request
 from werkzeug.utils import secure_filename
 
-from dashboard.app import finite
+from dashboard.app import finite, frontend_page
 
 ALLOWED = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
 MAX_BYTES = 20 * 1024 * 1024
-STATIC_DIR = Path(__file__).parent / "static"
 
 
 def _default_runner(path: Path, **kwargs: Any) -> dict[str, Any]:
@@ -55,8 +54,8 @@ def create_upload_blueprint(
 
     @bp.get("/upload")
     def upload_page():
-        # One frontend: it reads the path and opens on the Enhance page.
-        return send_from_directory(STATIC_DIR, "index.html")
+        # The same page as "/": it reads the path and opens on the Enhance page.
+        return frontend_page()
 
     @bp.post("/api/enhance")
     def api_enhance():

@@ -299,3 +299,46 @@ def test_past_enhancements_are_listed_read_only(finished_run, tmp_path):
     assert run["urls"] == {"nag": "/enhanced/photo-abc/nag.png"}
     assert client.get("/enhanced/photo-abc/nag.png").status_code == 200
     assert client.get("/enhanced/../photo-abc/metrics.json").status_code in (400, 403, 404)
+
+
+# --------------------------------------------------------------------------
+# Which frontend is served
+# --------------------------------------------------------------------------
+
+def test_classic_frontend_stands_in_until_the_react_app_is_built(finished_run, tmp_path):
+    """A checkout with no Node toolchain still gets a working dashboard."""
+    client = create_app(finished_run, web=tmp_path / "unbuilt").test_client()
+    page = client.get("/")
+    assert page.status_code == 200
+    assert b"/static/app.js" in page.data
+    assert client.get("/classic").status_code == 200
+
+
+def test_built_react_app_is_served_at_the_root(finished_run, tmp_path):
+    web = tmp_path / "web"
+    (web / "assets").mkdir(parents=True)
+    (web / "index.html").write_text(
+        '<div id="root"></div><script type="module" src="/app/assets/index-abc.js"></script>', encoding="utf-8")
+    (web / "assets" / "index-abc.js").write_text("export {};", encoding="utf-8")
+    client = create_app(finished_run, web=web).test_client()
+
+    page = client.get("/")
+    assert b'id="root"' in page.data
+    assert page.headers["Cache-Control"] == "no-cache"
+
+    asset = client.get("/app/assets/index-abc.js")
+    assert asset.status_code == 200
+    assert "javascript" in asset.mimetype
+    assert "max-age=31536000" in asset.headers["Cache-Control"]
+
+    # The classic frontend stays one link away.
+    assert b"/static/app.js" in client.get("/classic").data
+
+
+def test_built_app_paths_cannot_escape_the_build_directory(finished_run, tmp_path):
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "index.html").write_text("<div id=root></div>", encoding="utf-8")
+    client = create_app(finished_run, web=web).test_client()
+    for attempt in ("../dash.yaml", "..%2Fdash.yaml"):
+        assert client.get(f"/app/{attempt}").status_code in (400, 403, 404)

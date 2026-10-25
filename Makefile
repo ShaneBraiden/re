@@ -14,7 +14,7 @@ BASELINE    ?= classical_isp
 PORT        ?= 5000
 
 .PHONY: help install install-dev corpus validate run analyze figures dashboard test lint reproduce clean clean-all \
-        weights train study paper-nag enhance dashboard-upload
+        weights train study paper-nag enhance dashboard-upload frontend frontend-dev
 
 help:
 	@echo "SensorSim targets"
@@ -25,6 +25,8 @@ help:
 	@echo "  make run                     degrade -> restore -> evaluate"
 	@echo "  make analyze                 curves, knees, significance, figures"
 	@echo "  make dashboard               serve the read-only dashboard"
+	@echo "  make frontend                build the React dashboard (needs Node 20+)"
+	@echo "  make frontend-dev            live-reloading frontend on :5173 (run make dashboard too)"
 	@echo "  make test                    the test suite"
 	@echo "  make reproduce EXPERIMENT=id regenerate every number and figure"
 	@echo ""
@@ -61,6 +63,13 @@ dashboard:
 
 dashboard-upload:
 	$(PYTHON) -m sensorsim.cli dashboard experiments/$(EXPERIMENT) --port $(PORT) --upload
+
+# The React frontend builds into dashboard/web, which the dashboard serves at /.
+frontend:
+	cd frontend && npm ci && npm run build
+
+frontend-dev:
+	cd frontend && npm run dev
 
 weights:
 	$(PYTHON) -m sensorsim.cli weights fetch
